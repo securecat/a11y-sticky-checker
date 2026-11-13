@@ -1,0 +1,303 @@
+<style>
+  :root { --gap: 12px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font: 12px/1.5 Inter, "Noto Sans JP", system-ui, sans-serif;
+    color: var(--figma-color-text);
+    background: var(--figma-color-bg);
+  }
+  h1 { font-size: 14px; margin: 0 0 2px; }
+  .sub { color: var(--figma-color-text-secondary); margin: 0 0 16px; }
+  .target {
+    padding: 10px 12px; margin-bottom: 16px; border-radius: 6px;
+    background: var(--figma-color-bg-secondary);
+  }
+  .target strong { display: block; font-size: 13px; }
+  label.field { display: block; margin-bottom: var(--gap); }
+  label.field span { display: block; font-weight: 600; margin-bottom: 4px; }
+  input[type=text], input[type=password], textarea {
+    width: 100%; padding: 7px 8px; font: inherit;
+    color: var(--figma-color-text); background: var(--figma-color-bg);
+    border: 1px solid var(--figma-color-border); border-radius: 4px;
+  }
+  .version { font-weight: 400; color: var(--figma-color-text-secondary); }
+  textarea { min-height: 96px; resize: vertical; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--figma-color-border-brand-strong, #0d99ff); outline-offset: 1px;
+  }
+  .row { display: flex; gap: 16px; align-items: center; margin-bottom: var(--gap); }
+  .row label { display: flex; gap: 6px; align-items: center; }
+  details { margin-bottom: 16px; }
+  summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
+  .hint { color: var(--figma-color-text-secondary); margin-top: 4px; }
+  .actions { display: flex; gap: 8px; }
+  button {
+    font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--figma-color-border); background: var(--figma-color-bg);
+    color: var(--figma-color-text);
+  }
+  button.primary {
+    flex: 1; border-color: transparent;
+    background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand);
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  #status { margin-top: 12px; min-height: 18px; color: var(--figma-color-text-secondary); }
+</style>
+
+<h1>A11y sticky checker <span class="version">v1.1.1</span></h1>
+<p class="sub">選択したフレームを確認し、指摘を付箋にして貼ります。</p>
+
+<div class="target" id="target"><strong>フレームが選択されていません</strong>キャンバスでフレームを選んでください。</div>
+
+<div class="row">
+  <strong>使うAI</strong>
+  <label><input type="radio" name="provider" value="claude" checked>Claude</label>
+  <label><input type="radio" name="provider" value="gemini">Gemini</label>
+</div>
+
+<label class="field">
+  <span id="keyLabel">Claude APIキー</span>
+  <input type="password" id="apiKey" autocomplete="off">
+  <div class="hint">このPCのFigma内にだけ保存されます。AIごとに別々に保存します。</div>
+</label>
+
+<label class="field">
+  <span>モデル</span>
+  <input type="text" id="model">
+</label>
+
+<div class="row">
+  <strong>付箋の位置</strong>
+  <label><input type="radio" name="pos" value="below" checked>下</label>
+  <label><input type="radio" name="pos" value="above">上</label>
+</div>
+
+<div class="row">
+  <label><input type="checkbox" id="useAI" checked>AIによる目視チェックも行う</label>
+</div>
+
+<details>
+  <summary>独自のチェックリスト（任意）</summary>
+  <textarea id="checklist" placeholder="1行に1項目。空欄ならWCAG 2.2を基準に判断します。"></textarea>
+</details>
+
+<div class="actions">
+  <button class="primary" id="run" disabled>チェックする</button>
+  <button id="clear">付箋を消す</button>
+</div>
+<div id="status" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let selectionCount = 0;
+let busy = false;
+
+const DEFAULT_CHECKLIST = [
+  '1.1.1 意味のある画像やアイコンに代替テキストが必要そうか',
+  '1.3.1 見出し・リスト・表などの構造が見た目で明確か',
+  '1.3.3／1.4.1 色・形・位置だけで情報を伝えていないか（エラー、必須項目、グラフの凡例など）',
+  '1.4.11 入力欄の枠線・アイコン・状態表示など、テキスト以外の要素のコントラスト',
+  '2.4.4／2.5.3 リンクやボタンの文言だけで目的がわかるか（「こちら」「詳細」など）',
+  '2.4.6／3.3.2 フォームにラベルがあるか（プレースホルダーだけになっていないか）',
+  '3.3.1 エラー状態が描かれている場合、テキストで内容を説明しているか'
+].join('\n');
+
+const SYSTEM_PROMPT = `あなたはWCAG 2.2に詳しいアクセシビリティレビュアーです。Figmaのデザイン（画面画像とレイヤー構造）を見て、問題点を指摘してください。
+ルール:
+- テキストのコントラスト比、文字サイズ、タップ領域のサイズはプログラムで計測済みです。これらは指摘しないでください。
+- 静的なデザインから判断できる範囲に限り、確信の持てない推測は含めないでください。
+- 指摘は重要なものから最大8件。
+- 出力はJSONのみ。前置きやコードブロック記号は付けないでください。
+形式:
+{"issues":[{"title":"20字以内の見出し","wcag":"達成基準番号（例: 1.4.1）","level":"A / AA / AAA / 推奨 のいずれか","severity":"high / medium / low のいずれか","layer":"該当レイヤー名（レイヤー構造の名前をそのまま。特定できなければ空文字）","detail":"何が問題か（80字以内）","suggestion":"改善案（80字以内）"}]}
+問題がなければ {"issues":[]} を返してください。`;
+
+const PROVIDERS = {
+  claude: { label: 'Claude APIキー', placeholder: 'sk-ant-...', model: 'claude-sonnet-5-5' },
+  gemini: { label: 'Gemini APIキー', placeholder: 'AIza...', model: 'gemini-3.5-flash' }
+};
+// AIごとのキーとモデルを保持
+let store = {
+  provider: 'claude',
+  keys: { claude: '', gemini: '' },
+  models: { claude: PROVIDERS.claude.model, gemini: PROVIDERS.gemini.model }
+};
+
+function provider() { return document.querySelector('input[name=provider]:checked').value; }
+
+function showProvider() {
+  const p = provider();
+  $('keyLabel').textContent = PROVIDERS[p].label;
+  $('apiKey').placeholder = PROVIDERS[p].placeholder;
+  $('apiKey').value = store.keys[p] || '';
+  $('model').value = store.models[p] || PROVIDERS[p].model;
+}
+
+function currentSettings() {
+  const p = provider();
+  store.provider = p;
+  store.keys[p] = $('apiKey').value.trim();
+  store.models[p] = $('model').value.trim() || PROVIDERS[p].model;
+  return {
+    provider: p,
+    keys: store.keys,
+    models: store.models,
+    apiKey: store.keys[p],
+    model: store.models[p],
+    position: document.querySelector('input[name=pos]:checked').value,
+    useAI: $('useAI').checked,
+    checklist: $('checklist').value
+  };
+}
+function save() {
+  const s = currentSettings();
+  parent.postMessage({ pluginMessage: { type: 'save-settings', settings: {
+    provider: s.provider, keys: s.keys, models: s.models,
+    position: s.position, useAI: s.useAI, checklist: s.checklist
+  } } }, '*');
+}
+['apiKey', 'model', 'useAI', 'checklist'].forEach((id) => $(id).addEventListener('change', save));
+document.querySelectorAll('input[name=pos]').forEach((el) => el.addEventListener('change', save));
+document.querySelectorAll('input[name=provider]').forEach((el) => el.addEventListener('change', () => { showProvider(); save(); }));
+
+function refreshButton() { $('run').disabled = busy || selectionCount === 0; }
+
+showProvider();
+
+$('run').onclick = () => {
+  const s = currentSettings();
+  if (s.useAI && !s.apiKey) { $('status').textContent = `AIチェックには${PROVIDERS[s.provider].label}が必要です。入力するか、AIチェックをオフにしてください。`; return; }
+  busy = true; refreshButton();
+  $('status').textContent = '開始しています';
+  parent.postMessage({ pluginMessage: { type: 'run', options: { position: s.position, useAI: s.useAI } } }, '*');
+};
+$('clear').onclick = () => parent.postMessage({ pluginMessage: { type: 'clear' } }, '*');
+
+function toBase64(bytes) {
+  let s = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  return btoa(s);
+}
+
+function parseIssues(text) {
+  const cleaned = text.replace(/```json|```/g, '');
+  const start = cleaned.indexOf('{'), end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('AIの応答をJSONとして読み取れませんでした');
+  const obj = JSON.parse(cleaned.slice(start, end + 1));
+  return Array.isArray(obj.issues) ? obj.issues : [];
+}
+
+function buildUserText(req, checklistText) {
+  const checklist = checklistText.trim() || DEFAULT_CHECKLIST;
+  return `フレーム名: ${req.frameName}\n\n` +
+    `確認する観点:\n${checklist}\n\n` +
+    `プログラムで検出済みの指摘（重複させないこと）:\n${req.logicSummary.length ? req.logicSummary.join('\n') : 'なし'}\n\n` +
+    `レイヤー構造:\n${req.outline}`;
+}
+
+async function readError(res) {
+  const body = await res.text();
+  return new Error(`APIエラー ${res.status}: ${body.slice(0, 200)}`);
+}
+
+async function callClaude(req, s) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': s.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: s.model,
+      max_tokens: 2000,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: toBase64(req.image) } },
+          { type: 'text', text: buildUserText(req, s.checklist) }
+        ]
+      }]
+    })
+  });
+  if (!res.ok) throw await readError(res);
+  const data = await res.json();
+  return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+}
+
+async function callGemini(req, s) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(s.model)}:generateContent`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': s.apiKey },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{
+        role: 'user',
+        parts: [
+          { inline_data: { mime_type: 'image/jpeg', data: toBase64(req.image) } },
+          { text: buildUserText(req, s.checklist) }
+        ]
+      }],
+      generationConfig: { responseMimeType: 'application/json' }
+    })
+  });
+  if (!res.ok) throw await readError(res);
+  const data = await res.json();
+  const cand = data.candidates && data.candidates[0];
+  if (!cand || !cand.content || !cand.content.parts) {
+    const reason = (cand && cand.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || '不明';
+    throw new Error(`Geminiから結果が返りませんでした（理由: ${reason}）`);
+  }
+  return cand.content.parts.filter((p) => p.text && !p.thought).map((p) => p.text).join('\n');
+}
+
+async function analyze(req) {
+  const s = currentSettings();
+  const text = s.provider === 'gemini' ? await callGemini(req, s) : await callClaude(req, s);
+  return parseIssues(text);
+}
+
+onmessage = async (event) => {
+  const msg = event.data.pluginMessage;
+  if (!msg) return;
+
+  if (msg.type === 'init') {
+    const st = msg.settings || {};
+    if (st.keys) store.keys = Object.assign(store.keys, st.keys);
+    else if (st.apiKey) store.keys.claude = st.apiKey; // 旧バージョンの設定を引き継ぐ
+    if (st.models) store.models = Object.assign(store.models, st.models);
+    else if (st.model) store.models.claude = st.model;
+    if (st.provider) document.querySelector(`input[name=provider][value=${st.provider}]`).checked = true;
+    if (st.position) document.querySelector(`input[name=pos][value=${st.position}]`).checked = true;
+    if (typeof st.useAI === 'boolean') $('useAI').checked = st.useAI;
+    if (st.checklist) $('checklist').value = st.checklist;
+    showProvider();
+  } else if (msg.type === 'selection') {
+    selectionCount = msg.count;
+    $('target').innerHTML = msg.count
+      ? `<strong>${msg.count}個のフレームを選択中</strong>${msg.names.map(escapeHtml).join('、')}${msg.count > 3 ? ' ほか' : ''}`
+      : '<strong>フレームが選択されていません</strong>キャンバスでフレームを選んでください。';
+    refreshButton();
+  } else if (msg.type === 'progress') {
+    $('status').textContent = msg.text;
+  } else if (msg.type === 'done') {
+    busy = false; refreshButton();
+  } else if (msg.type === 'ai-request') {
+    try {
+      const issues = await analyze(msg);
+      parent.postMessage({ pluginMessage: { type: 'ai-result', reqId: msg.reqId, issues } }, '*');
+    } catch (e) {
+      parent.postMessage({ pluginMessage: { type: 'ai-result', reqId: msg.reqId, error: String(e.message || e) } }, '*');
+    }
+  }
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+</script>

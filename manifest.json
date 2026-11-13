@@ -1,0 +1,13 @@
+{
+  "name": "A11y sticky checker",
+  "id": "a11y-sticky-checker-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://api.anthropic.com", "https://generativelanguage.googleapis.com"],
+    "reasoning": "フレーム画像をClaude API または Gemini API に送り、アクセシビリティの観点で解析するため"
+  }
+}
