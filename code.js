@@ -299,6 +299,10 @@ var SEV = {
 var SEV_ORDER = { high: 0, medium: 1, low: 2 };
 var INK = hexToRgb('2B2B2B');
 var INK_SOFT = hexToRgb('5C5848');
+var CARD_WIDTH = 390;       // 付箋1枚の幅
+var CARD_GAP = 24;          // 付箋どうしの間隔（縦横とも）
+var CARD_TITLE_SIZE = 18;   // 付箋の見出しの文字サイズ
+var CARD_TEXT_SIZE = 16;    // 付箋の見出し以外と、まとめ用フレームの見出しの文字サイズ
 
 async function loadFonts() {
   var candidates = [['Noto Sans JP', 'Regular', 'Bold'], ['Inter', 'Regular', 'Bold']];
@@ -336,29 +340,29 @@ function makeCard(issue) {
   card.layoutMode = 'VERTICAL';
   card.primaryAxisSizingMode = 'AUTO';
   card.counterAxisSizingMode = 'FIXED';
-  card.resize(260, 100);
-  card.paddingTop = 14; card.paddingBottom = 16;
-  card.paddingLeft = 16; card.paddingRight = 16;
-  card.itemSpacing = 6;
-  card.cornerRadius = 2;
+  card.resize(CARD_WIDTH, 100);
+  card.paddingTop = 21; card.paddingBottom = 24;
+  card.paddingLeft = 24; card.paddingRight = 24;
+  card.itemSpacing = 9;
+  card.cornerRadius = 3;
   card.fills = [{ type: 'SOLID', color: hexToRgb(sev.fill) }];
   card.effects = [{
     type: 'DROP_SHADOW', color: { r: 0.3, g: 0.25, b: 0.1, a: 0.18 },
-    offset: { x: 0, y: 3 }, radius: 6, spread: 0, visible: true, blendMode: 'NORMAL'
+    offset: { x: 0, y: 4.5 }, radius: 9, spread: 0, visible: true, blendMode: 'NORMAL'
   }];
 
   var meta = sev.label;
   if (issue.wcag) meta += '｜WCAG ' + issue.wcag + (issue.level ? ' ' + issue.level : '');
   if (issue.source === 'ai') meta += '｜AI判定';
-  appendFill(card, makeText(meta, 11, true, INK_SOFT));
-  appendFill(card, makeText(issue.title, 15, true, INK));
+  appendFill(card, makeText(meta, CARD_TEXT_SIZE, true, INK_SOFT));
+  appendFill(card, makeText(issue.title, CARD_TITLE_SIZE, true, INK));
   if (issue.layers && issue.layers.length) {
     var shown = issue.layers.slice(0, 3).join('、');
     if (issue.layers.length > 3) shown += ' ほか' + (issue.layers.length - 3) + '件';
-    appendFill(card, makeText('該当：' + shown, 11, false, INK_SOFT));
+    appendFill(card, makeText('該当：' + shown, CARD_TEXT_SIZE, false, INK_SOFT));
   }
-  if (issue.detail) appendFill(card, makeText(issue.detail, 12, false, INK));
-  if (issue.suggestion) appendFill(card, makeText('改善案：' + issue.suggestion, 12, true, INK));
+  if (issue.detail) appendFill(card, makeText(issue.detail, CARD_TEXT_SIZE, false, INK));
+  if (issue.suggestion) appendFill(card, makeText('改善案：' + issue.suggestion, CARD_TEXT_SIZE, true, INK));
   return card;
 }
 
@@ -407,22 +411,23 @@ function placeNotes(frame, issues, opts) {
   wrap.layoutMode = 'VERTICAL';
   wrap.primaryAxisSizingMode = 'AUTO';
   wrap.counterAxisSizingMode = 'FIXED';
-  wrap.resize(Math.max(box.width, 560), 100);
-  wrap.itemSpacing = 14;
+  // 付箋が最低でも横に2枚並ぶ幅を確保する
+  wrap.resize(Math.max(box.width, CARD_WIDTH * 2 + CARD_GAP + 36), 100);
+  wrap.itemSpacing = 21;
   wrap.fills = [];
   wrap.clipsContent = false;
   figma.currentPage.appendChild(wrap);
 
   var d = new Date();
   var stamp = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
-  appendFill(wrap, makeText('アクセシビリティチェック　' + sorted.length + '件（' + stamp + '）', 16, true, INK));
+  appendFill(wrap, makeText('アクセシビリティチェック　' + sorted.length + '件（' + stamp + '）', CARD_TEXT_SIZE, true, INK));
 
   var row = figma.createFrame();
   row.name = '付箋';
   row.layoutMode = 'HORIZONTAL';
   row.layoutWrap = 'WRAP';
-  row.itemSpacing = 16;
-  row.counterAxisSpacing = 16;
+  row.itemSpacing = CARD_GAP;
+  row.counterAxisSpacing = CARD_GAP;
   row.fills = [];
   row.clipsContent = false;
   appendFill(wrap, row);
