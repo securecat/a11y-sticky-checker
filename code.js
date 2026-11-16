@@ -5,6 +5,10 @@ var NOTE_KEY = 'a11yNoteFor';
 var TARGET_TYPES = ['FRAME', 'COMPONENT', 'INSTANCE', 'COMPONENT_SET'];
 var INTERACTIVE_RE = /(button|btn|link|icon|tab|toggle|checkbox|radio|switch|chip|close|menu|ボタン|リンク|アイコン|タブ|トグル|チェック|ラジオ|スイッチ|閉じる|メニュー)/i;
 var INTERACTIVE_TYPES = ['FRAME', 'INSTANCE', 'COMPONENT', 'GROUP'];
+// 文字サイズの下限。ひらがな・カタカナ・漢字・全角記号・半角カナを含むセグメントは日本語として扱う
+var MIN_FONT_JA = 16;
+var MIN_FONT_EN = 14;
+var JA_RE = /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/;
 
 var FONT = { regular: { family: 'Inter', style: 'Regular' }, bold: { family: 'Inter', style: 'Bold' } };
 var running = false;
@@ -174,7 +178,11 @@ function runLogicChecks(frame) {
           worst = { ratio: ratio, need: need, large: large, fg: fg, bg: bg.color };
         }
       }
-      if (s.fontSize < 12 && (smallest === null || s.fontSize < smallest)) smallest = s.fontSize;
+      var ja = JA_RE.test(s.characters);
+      var min = ja ? MIN_FONT_JA : MIN_FONT_EN;
+      if (s.fontSize < min && (smallest === null || s.fontSize / min < smallest.size / smallest.min)) {
+        smallest = { size: s.fontSize, min: min, ja: ja };
+      }
     });
 
     if (bg.uncertain) uncertainCount += 1;
@@ -194,12 +202,14 @@ function runLogicChecks(frame) {
       }, node.name);
     }
     if (smallest !== null) {
-      addIssue('small:' + smallest, {
+      var lang = smallest.ja ? '日本語' : '英数字';
+      addIssue('small:' + (smallest.ja ? 'ja:' : 'en:') + smallest.size, {
         source: 'logic', severity: 'low',
         title: '文字サイズが小さい',
         wcag: '1.4.4（参考）', level: '推奨',
-        detail: smallest + 'px のテキストがあります。WCAGに最小サイズの規定はありませんが、12px未満は読みにくくなりがちです。',
-        suggestion: '本文は14〜16px以上、補足テキストでも12px以上を目安にしてください。'
+        detail: smallest.size + 'px の' + lang + 'のテキストがあります。WCAGに最小サイズの規定はありませんが、' +
+          lang + 'は' + smallest.min + 'px未満だと読みにくくなりがちです。',
+        suggestion: '日本語を含むテキストは16px以上、英数字だけのテキストは14px以上にしてください。'
       }, node.name);
     }
   }
