@@ -13,7 +13,7 @@ var JA_RE = /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/;
 var FONT = { regular: { family: 'Inter', style: 'Regular' }, bold: { family: 'Inter', style: 'Bold' } };
 var running = false;
 
-figma.showUI(__html__, { width: 360, height: 600, themeColors: true });
+figma.showUI(__html__, { width: 400, height: 760, themeColors: true });
 
 (async function init() {
   var settings = (await figma.clientStorage.getAsync('settings')) || {};

@@ -3,17 +3,17 @@
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 16px;
-    font: 12px/1.5 Inter, "Noto Sans JP", system-ui, sans-serif;
+    font: 16px/1.5 sans-serif;
     color: var(--figma-color-text);
     background: var(--figma-color-bg);
   }
-  h1 { font-size: 14px; margin: 0 0 2px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
   .sub { color: var(--figma-color-text-secondary); margin: 0 0 16px; }
   .target {
     padding: 10px 12px; margin-bottom: 16px; border-radius: 6px;
     background: var(--figma-color-bg-secondary);
   }
-  .target strong { display: block; font-size: 13px; }
+  .target strong { display: block; }
   .field { display: block; margin-bottom: var(--gap); }
   label.field span, div.field > label { display: block; font-weight: 600; margin-bottom: 4px; }
   input[type=text], input[type=password], textarea {
@@ -41,8 +41,7 @@
     flex: 1; border-color: transparent;
     background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand);
   }
-  button:disabled { opacity: .45; cursor: default; }
-  #status { margin-top: 12px; min-height: 18px; color: var(--figma-color-text-secondary); }
+  #status { margin-top: 12px; min-height: 24px; color: var(--figma-color-text-secondary); }
 </style>
 
 <h1>A11y sticky checker <span class="version">v1.1.1</span></h1>
@@ -83,7 +82,7 @@
 </details>
 
 <div class="actions">
-  <button class="primary" id="run" disabled>チェックする</button>
+  <button class="primary" id="run">チェックする</button>
   <button id="clear">付箋を消す</button>
 </div>
 <div id="status" role="status"></div>
@@ -92,6 +91,7 @@
 const $ = (id) => document.getElementById(id);
 let selectionCount = 0;
 let busy = false;
+const NO_SELECTION_MSG = 'チェックしたいフレームをキャンバスで選択してから、もう一度押してください。';
 
 const DEFAULT_CHECKLIST = [
   '1.1.1 意味のある画像やアイコンに代替テキストが必要そうか',
@@ -161,15 +161,16 @@ function save() {
 document.querySelectorAll('input[name=pos]').forEach((el) => el.addEventListener('change', save));
 document.querySelectorAll('input[name=provider]').forEach((el) => el.addEventListener('change', () => { showProvider(); save(); }));
 
-function refreshButton() { $('run').disabled = busy || selectionCount === 0; }
-
 showProvider();
 
 $('run').onclick = () => {
+  // ボタンは常に押せるようにし、実行できないときは理由を表示する
+  if (busy) { $('status').textContent = 'チェック中です。終わるまでお待ちください。'; return; }
+  if (selectionCount === 0) { $('status').textContent = NO_SELECTION_MSG; return; }
   const s = currentSettings();
   // APIキーが未設定なら、AIチェックは飛ばして計測だけ行う
   const aiSkipped = s.useAI && !s.apiKey;
-  busy = true; refreshButton();
+  busy = true;
   $('status').textContent = '開始しています';
   parent.postMessage({ pluginMessage: { type: 'run', options: {
     position: s.position,
@@ -287,11 +288,12 @@ onmessage = async (event) => {
     $('target').innerHTML = msg.count
       ? `<strong>${msg.count}個のフレームを選択中</strong>${msg.names.map(escapeHtml).join('、')}${msg.count > 3 ? ' ほか' : ''}`
       : '<strong>フレームが選択されていません</strong>キャンバスでフレームを選んでください。';
-    refreshButton();
+    // フレームを選んだら、「選択してください」の案内は役目を終えたので消す
+    if (msg.count && $('status').textContent === NO_SELECTION_MSG) $('status').textContent = '';
   } else if (msg.type === 'progress') {
     $('status').textContent = msg.text;
   } else if (msg.type === 'done') {
-    busy = false; refreshButton();
+    busy = false;
   } else if (msg.type === 'ai-request') {
     try {
       const issues = await analyze(msg);
