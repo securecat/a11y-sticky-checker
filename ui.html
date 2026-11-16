@@ -1,81 +1,49 @@
 <style>
-  /*
-    色は Figma のテーマ変数を使わず、ここで定義する（テーマ変数ではコントラスト比を保証できないため）。
-    コントラスト比（背景 --color-bg に対して。主ボタンの文字は主ボタンの背景に対して）
-      ライト：本文 17.40、補足 7.00、操作部品の枠線 4.54、フォーカス・主ボタン 7.74、
-              主ボタンの文字 7.74、エラー 5.79
-      ダーク：本文 12.81、補足 7.43、操作部品の枠線 4.32、フォーカス・主ボタン 7.70、
-              主ボタンの文字 10.41、エラー 7.05
-  */
-  :root {
-    --gap: 12px;
-    color-scheme: light;
-    --color-bg: #FFFFFF;
-    --color-text: #1A1A1A;
-    --color-text-secondary: #595959;
-    --color-control-border: #767676;
-    --color-focus: #094EAE;
-    --color-primary-bg: #094EAE;
-    --color-primary-text: #FFFFFF;
-    --color-error: #CE0000;
-  }
+  :root { --gap: 12px; --color-error: #CE0000; }
   /* themeColors: true のとき、Figma がダークテーマで html に figma-dark クラスを付ける */
-  html.figma-dark {
-    color-scheme: dark;
-    --color-bg: #2C2C2C;
-    --color-text: #F5F5F5;
-    --color-text-secondary: #BDBDBD;
-    --color-control-border: #8F8F8F;
-    --color-focus: #8EC5FF;
-    --color-primary-bg: #8EC5FF;
-    --color-primary-text: #111111;
-    --color-error: #FF9E99;
-  }
+  html.figma-dark { --color-error: #FF9E99; }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 16px;
     font: 16px/1.5 sans-serif;
-    color: var(--color-text);
-    background: var(--color-bg);
-    accent-color: var(--color-focus);
+    color: var(--figma-color-text);
+    background: var(--figma-color-bg);
   }
   h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: var(--color-text-secondary); margin: 0 0 16px; }
-  /* 背景色の塗りは 3:1 を確保できないため使わず、左の線で区切る */
+  .sub { color: var(--figma-color-text-secondary); margin: 0 0 16px; }
   .target {
-    padding: 4px 0 4px 12px; margin-bottom: 16px;
-    border-left: 4px solid var(--color-text-secondary);
+    padding: 10px 12px; margin-bottom: 16px; border-radius: 6px;
+    background: var(--figma-color-bg-secondary);
   }
   .target strong { display: block; }
   .field { display: block; margin-bottom: var(--gap); }
   label.field span, div.field > label { display: block; font-weight: 600; margin-bottom: 4px; }
   input[type=text], input[type=password], textarea {
     width: 100%; padding: 7px 8px; font: inherit;
-    color: var(--color-text); background: var(--color-bg);
-    border: 1px solid var(--color-control-border); border-radius: 4px;
+    color: var(--figma-color-text); background: var(--figma-color-bg);
+    border: 1px solid var(--figma-color-border); border-radius: 4px;
   }
-  ::placeholder { color: var(--color-text-secondary); opacity: 1; }
-  .version { font-weight: 400; color: var(--color-text-secondary); }
+  .version { font-weight: 400; color: var(--figma-color-text-secondary); }
   textarea { min-height: 96px; resize: vertical; }
-  input:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible {
-    outline: 2px solid var(--color-focus); outline-offset: 2px;
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--figma-color-border-brand-strong, #0d99ff); outline-offset: 1px;
   }
   .row { display: flex; gap: 16px; align-items: center; margin-bottom: var(--gap); }
   .row label { display: flex; gap: 6px; align-items: center; }
   details { margin-bottom: 16px; }
   summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
-  .hint { color: var(--color-text-secondary); margin: 4px 0 0; }
+  .hint { color: var(--figma-color-text-secondary); margin: 4px 0 0; }
   .actions { display: flex; gap: 8px; }
   button {
     font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 6px; cursor: pointer;
-    border: 1px solid var(--color-control-border); background: var(--color-bg);
-    color: var(--color-text);
+    border: 1px solid var(--figma-color-border); background: var(--figma-color-bg);
+    color: var(--figma-color-text);
   }
   button.primary {
-    flex: 1; border-color: var(--color-primary-bg);
-    background: var(--color-primary-bg); color: var(--color-primary-text);
+    flex: 1; border-color: transparent;
+    background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand);
   }
-  #status { margin-top: 12px; min-height: 24px; color: var(--color-text-secondary); }
+  #status { margin-top: 12px; min-height: 24px; color: var(--figma-color-text-secondary); }
   #status.is-error { color: var(--color-error); font-weight: 600; }
 </style>
 
