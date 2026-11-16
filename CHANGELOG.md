@@ -5,6 +5,12 @@
 形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に準拠し、
 バージョン管理は [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
+## [1.2.2] - 2026-11-16
+
+### 変更
+
+- 指摘が1件もないときに貼る「問題は見つかりませんでした」の付箋に、WCAGに適合していることを意味するものではない旨を書き添えた
+
 ## [1.2.1] - 2026-11-16
 
 ### 変更
