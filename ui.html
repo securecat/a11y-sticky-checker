@@ -1,5 +1,7 @@
 <style>
-  :root { --gap: 12px; }
+  :root { --gap: 12px; --color-error: #CE0000; }
+  /* themeColors: true のとき、Figma がダークテーマで html に figma-dark クラスを付ける */
+  html.figma-dark { --color-error: #FF9E99; }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 16px;
@@ -42,6 +44,7 @@
     background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand);
   }
   #status { margin-top: 12px; min-height: 24px; color: var(--figma-color-text-secondary); }
+  #status.is-error { color: var(--color-error); font-weight: 600; }
 </style>
 
 <h1>A11y sticky checker <span class="version">v1.1.1</span></h1>
@@ -91,7 +94,13 @@
 const $ = (id) => document.getElementById(id);
 let selectionCount = 0;
 let busy = false;
-const NO_SELECTION_MSG = 'チェックしたいフレームをキャンバスで選択してから、もう一度押してください。';
+const NO_SELECTION_MSG = 'エラー：チェックしたいフレームをキャンバスで選択してから、もう一度押してください。';
+
+// ステータスを書き換える。isError のときはエラー色にする（色だけに頼らないよう、文言にも「エラー：」を付ける）
+function setStatus(text, isError) {
+  $('status').textContent = text;
+  $('status').classList.toggle('is-error', !!isError);
+}
 
 const DEFAULT_CHECKLIST = [
   '1.1.1 意味のある画像やアイコンに代替テキストが必要そうか',
@@ -165,13 +174,13 @@ showProvider();
 
 $('run').onclick = () => {
   // ボタンは常に押せるようにし、実行できないときは理由を表示する
-  if (busy) { $('status').textContent = 'チェック中です。終わるまでお待ちください。'; return; }
-  if (selectionCount === 0) { $('status').textContent = NO_SELECTION_MSG; return; }
+  if (busy) { setStatus('チェック中です。終わるまでお待ちください。'); return; }
+  if (selectionCount === 0) { setStatus(NO_SELECTION_MSG, true); return; }
   const s = currentSettings();
   // APIキーが未設定なら、AIチェックは飛ばして計測だけ行う
   const aiSkipped = s.useAI && !s.apiKey;
   busy = true;
-  $('status').textContent = '開始しています';
+  setStatus('開始しています');
   parent.postMessage({ pluginMessage: { type: 'run', options: {
     position: s.position,
     useAI: s.useAI && !aiSkipped,
@@ -289,9 +298,9 @@ onmessage = async (event) => {
       ? `<strong>${msg.count}個のフレームを選択中</strong>${msg.names.map(escapeHtml).join('、')}${msg.count > 3 ? ' ほか' : ''}`
       : '<strong>フレームが選択されていません</strong>キャンバスでフレームを選んでください。';
     // フレームを選んだら、「選択してください」の案内は役目を終えたので消す
-    if (msg.count && $('status').textContent === NO_SELECTION_MSG) $('status').textContent = '';
+    if (msg.count && $('status').textContent === NO_SELECTION_MSG) setStatus('');
   } else if (msg.type === 'progress') {
-    $('status').textContent = msg.text;
+    setStatus(msg.text);
   } else if (msg.type === 'done') {
     busy = false;
   } else if (msg.type === 'ai-request') {
