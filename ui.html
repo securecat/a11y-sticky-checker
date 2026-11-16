@@ -1,7 +1,5 @@
 <style>
-  :root { --gap: 12px; --color-error: #CE0000; }
-  /* themeColors: true のとき、Figma がダークテーマで html に figma-dark クラスを付ける */
-  html.figma-dark { --color-error: #FF9E99; }
+  :root { --gap: 12px; }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 16px;
@@ -44,7 +42,7 @@
     background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand);
   }
   #status { margin-top: 12px; min-height: 24px; color: var(--figma-color-text-secondary); }
-  #status.is-error { color: var(--color-error); font-weight: 600; }
+  #status.is-error { color: var(--figma-color-text-danger); font-weight: 600; }
 </style>
 
 <h1>A11y sticky checker <span class="version">v1.2.0</span></h1>
