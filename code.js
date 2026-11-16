@@ -5,7 +5,7 @@ var NOTE_KEY = 'a11yNoteFor';
 var TARGET_TYPES = ['FRAME', 'COMPONENT', 'INSTANCE', 'COMPONENT_SET'];
 var INTERACTIVE_RE = /(button|btn|link|icon|tab|toggle|checkbox|radio|switch|chip|close|menu|ボタン|リンク|アイコン|タブ|トグル|チェック|ラジオ|スイッチ|閉じる|メニュー)/i;
 var INTERACTIVE_TYPES = ['FRAME', 'INSTANCE', 'COMPONENT', 'GROUP'];
-// 文字サイズの下限。ひらがな・カタカナ・漢字・全角記号・半角カナを含むセグメントは日本語として扱う
+// 文字サイズの下限。ひらがな・カタカナ・漢字・全角記号・半角カナを1文字でも含むテキストは日本語として扱う
 var MIN_FONT_JA = 16;
 var MIN_FONT_EN = 14;
 var JA_RE = /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/;
@@ -162,6 +162,9 @@ function runLogicChecks(frame) {
     var bg = backgroundAt(box.x + box.width / 2, box.y + box.height / 2);
     var worst = null;
     var smallest = null;
+    // 1文字でも日本語があれば、英数字の部分も含めてテキスト全体を日本語の基準で判定する
+    var ja = JA_RE.test(node.characters);
+    var minFont = ja ? MIN_FONT_JA : MIN_FONT_EN;
 
     segs.forEach(function (s) {
       if (s.characters.trim() === '') return;
@@ -178,11 +181,7 @@ function runLogicChecks(frame) {
           worst = { ratio: ratio, need: need, large: large, fg: fg, bg: bg.color };
         }
       }
-      var ja = JA_RE.test(s.characters);
-      var min = ja ? MIN_FONT_JA : MIN_FONT_EN;
-      if (s.fontSize < min && (smallest === null || s.fontSize / min < smallest.size / smallest.min)) {
-        smallest = { size: s.fontSize, min: min, ja: ja };
-      }
+      if (s.fontSize < minFont && (smallest === null || s.fontSize < smallest)) smallest = s.fontSize;
     });
 
     if (bg.uncertain) uncertainCount += 1;
@@ -202,13 +201,13 @@ function runLogicChecks(frame) {
       }, node.name);
     }
     if (smallest !== null) {
-      var lang = smallest.ja ? '日本語' : '英数字';
-      addIssue('small:' + (smallest.ja ? 'ja:' : 'en:') + smallest.size, {
+      var lang = ja ? '日本語を含むテキスト' : '英数字だけのテキスト';
+      addIssue('small:' + (ja ? 'ja:' : 'en:') + smallest, {
         source: 'logic', severity: 'low',
         title: '文字サイズが小さい',
         wcag: '1.4.4（参考）', level: '推奨',
-        detail: smallest.size + 'px の' + lang + 'のテキストがあります。WCAGに最小サイズの規定はありませんが、' +
-          lang + 'は' + smallest.min + 'px未満だと読みにくくなりがちです。',
+        detail: lang + 'に ' + smallest + 'px の文字があります。WCAGに最小サイズの規定はありませんが、' +
+          lang + 'は' + minFont + 'px未満だと読みにくくなりがちです。',
         suggestion: '日本語を含むテキストは16px以上、英数字だけのテキストは14px以上にしてください。'
       }, node.name);
     }
