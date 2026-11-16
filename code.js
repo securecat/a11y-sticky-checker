@@ -110,10 +110,12 @@ async function run(opts) {
     placeNotes(frame, issues, {
       position: opts.position,
       aiError: aiError,
+      aiSkipped: opts.aiSkipped,
       uncertainCount: logic.uncertainCount
     });
   }
-  progress('完了しました：' + frames.length + 'フレーム／' + total + '件の指摘');
+  progress('完了しました：' + frames.length + 'フレーム／' + total + '件の指摘' +
+    (opts.aiSkipped ? '。' + opts.aiSkipped + 'が未設定のため、AIチェックは行わず計測のみ行いました。' : ''));
   figma.notify('チェック完了：' + total + '件の指摘');
 }
 
@@ -382,6 +384,13 @@ function placeNotes(frame, issues, opts) {
       severity: 'info', title: 'AIチェックを実行できませんでした',
       detail: opts.aiError.slice(0, 160),
       suggestion: '選んだAIのAPIキーとモデル名を確認して、もう一度実行してください。'
+    });
+  }
+  if (opts.aiSkipped) {
+    extra.push({
+      severity: 'info', title: 'AIチェックは行っていません',
+      detail: opts.aiSkipped + 'が未設定のため、プログラムによる計測だけを行いました。',
+      suggestion: 'AIによる目視チェックも行うには、プラグイン画面でAPIキーを入力してください。'
     });
   }
   if (!sorted.length) {

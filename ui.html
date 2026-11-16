@@ -14,8 +14,8 @@
     background: var(--figma-color-bg-secondary);
   }
   .target strong { display: block; font-size: 13px; }
-  label.field { display: block; margin-bottom: var(--gap); }
-  label.field span { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field { display: block; margin-bottom: var(--gap); }
+  label.field span, div.field > label { display: block; font-weight: 600; margin-bottom: 4px; }
   input[type=text], input[type=password], textarea {
     width: 100%; padding: 7px 8px; font: inherit;
     color: var(--figma-color-text); background: var(--figma-color-bg);
@@ -30,7 +30,7 @@
   .row label { display: flex; gap: 6px; align-items: center; }
   details { margin-bottom: 16px; }
   summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
-  .hint { color: var(--figma-color-text-secondary); margin-top: 4px; }
+  .hint { color: var(--figma-color-text-secondary); margin: 4px 0 0; }
   .actions { display: flex; gap: 8px; }
   button {
     font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 6px; cursor: pointer;
@@ -56,11 +56,11 @@
   <label><input type="radio" name="provider" value="gemini">Gemini</label>
 </div>
 
-<label class="field">
-  <span id="keyLabel">Claude APIキー</span>
-  <input type="password" id="apiKey" autocomplete="off">
-  <div class="hint">このPCのFigma内にだけ保存されます。AIごとに別々に保存します。</div>
-</label>
+<div class="field">
+  <label for="apiKey" id="keyLabel">Claude APIキー</label>
+  <input type="password" id="apiKey" autocomplete="off" aria-describedby="keyHint">
+  <p class="hint" id="keyHint">このPCのFigma内にだけ保存されます。AIごとに別々に保存します。未入力のときはAIチェックを行わず、計測だけを行います。</p>
+</div>
 
 <label class="field">
   <span>モデル</span>
@@ -167,10 +167,15 @@ showProvider();
 
 $('run').onclick = () => {
   const s = currentSettings();
-  if (s.useAI && !s.apiKey) { $('status').textContent = `AIチェックには${PROVIDERS[s.provider].label}が必要です。入力するか、AIチェックをオフにしてください。`; return; }
+  // APIキーが未設定なら、AIチェックは飛ばして計測だけ行う
+  const aiSkipped = s.useAI && !s.apiKey;
   busy = true; refreshButton();
   $('status').textContent = '開始しています';
-  parent.postMessage({ pluginMessage: { type: 'run', options: { position: s.position, useAI: s.useAI } } }, '*');
+  parent.postMessage({ pluginMessage: { type: 'run', options: {
+    position: s.position,
+    useAI: s.useAI && !aiSkipped,
+    aiSkipped: aiSkipped ? PROVIDERS[s.provider].label : ''
+  } } }, '*');
 };
 $('clear').onclick = () => parent.postMessage({ pluginMessage: { type: 'clear' } }, '*');
 
