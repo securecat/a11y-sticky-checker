@@ -5,6 +5,12 @@
 形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に準拠し、
 バージョン管理は [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
+## [1.2.1] - 2026-11-16
+
+### 変更
+
+- フレームを選択していないときのエラーメッセージの色を、Figma のテーマの色に合わせるようにした
+
 ## [1.2.0] - 2026-11-16
 
 ### 追加
